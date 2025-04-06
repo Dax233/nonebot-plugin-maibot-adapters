@@ -82,7 +82,7 @@ class ChatBot:
             #这里是at信息的处理逻辑 可能会比较混乱，但是暂时没找到更好的解决方式
             msg = str(event.raw_message)
             logger.info(f"{msg}")
-            qq_ids = list(set(re.findall(r'\[CQ:at,qq=(\d+)\]', msg)))
+            qq_ids = list(set(re.findall(r'\[CQ:at,qq=(\d+),name=[\s\S]*?\]', msg))) 
             if not qq_ids:  # 没有 @ 消息
                 message_content = msg
             else:
@@ -97,11 +97,11 @@ class ChatBot:
 
                 # 替换 @ 消息，避免 KeyError
                 message_content = re.sub(
-                    r'\[CQ:at,qq=(\d+)\]',
+                    r'\[CQ:at,qq=(\d+),name=[\s\S]*?\]',
                     lambda m: f'@{nicknames.get(m.group(1), f"用户{m.group(1)}")}（id:{m.group(1)}）',
                     msg
                 )
-            
+                
         
         message_info = BaseMessageInfo(
                 platform = config.platfrom,
