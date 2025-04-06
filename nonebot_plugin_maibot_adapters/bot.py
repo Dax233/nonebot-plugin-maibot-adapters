@@ -239,7 +239,7 @@ class ChatBot:
                 # 获取真实图片数据（根据协议适配器实现）
                 image_file = segment.data.get("file")
                 image_url = segment.data.get("url")
-                subtype = segment.data.get("sub_type")
+                subtype = segment.data.get("subType")
                 try:
                     #这里是私人emoji和图片
                     image_data = await asyncio.wait_for(bot.get_image(file=image_file),timeout=2)#2s不响应自动切换一个解决方式
