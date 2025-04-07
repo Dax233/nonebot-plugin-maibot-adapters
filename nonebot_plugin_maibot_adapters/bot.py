@@ -70,7 +70,7 @@ class ChatBot:
 
             user_infot_api = await bot.call_api(
                 'get_group_member_info',group_id = event.group_id, user_id = event.user_id, no_cache = True)
-            cardname = {user_infot_api['title']} or event.sender.card
+            cardname = user_infot_api['title'] or event.sender.card
             user_info = UserInfo(
                 user_id=event.user_id,
                 user_nickname=event.sender.nickname,
@@ -221,7 +221,7 @@ class ChatBot:
             else:
                 user_infot_api = await bot.call_api(
                     'get_group_member_info',group_id = event.group_id, user_id = event.user_id, no_cache = True)
-                cardname = {user_infot_api['title']} or event.sender.card
+                cardname = user_infot_api['title'] or event.sender.card
                 user_info = UserInfo(
                     user_id=event.user_id,
                     user_nickname=event.sender.nickname,
@@ -317,7 +317,7 @@ class ChatBot:
 
             user_infot_api = await bot.call_api(
                 'get_group_member_info',group_id = event.group_id, user_id = event.user_id, no_cache = True)
-            cardname = {user_infot_api['title']} or event.sender.card
+            cardname = user_infot_api['title'] or event.sender.card
             user_info = UserInfo(
                 user_id=event.user_id,
                 user_nickname=event.sender.nickname,
