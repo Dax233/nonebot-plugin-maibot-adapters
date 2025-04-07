@@ -68,10 +68,13 @@ class ChatBot:
                 if event.group_id not in config.allow_group_list:
                     return
 
+            user_infot_api = await bot.call_api(
+                'get_group_member_info',group_id = event.group_id, user_id = event.user_id, no_cache = True)
+            cardname = {user_infot_api['title']} or event.sender.card
             user_info = UserInfo(
                 user_id=event.user_id,
                 user_nickname=event.sender.nickname,
-                user_cardname=event.sender.card or None,
+                user_cardname=cardname or None,
                 platform=config.platfrom,
             )
             
@@ -216,10 +219,13 @@ class ChatBot:
                 )
                 group_info = None
             else:
+                user_infot_api = await bot.call_api(
+                    'get_group_member_info',group_id = event.group_id, user_id = event.user_id, no_cache = True)
+                cardname = f"{event.sender.card}(昵称：{user_infot_api['title']}" or event.sender.card
                 user_info = UserInfo(
                     user_id=event.user_id,
                     user_nickname=event.sender.nickname,
-                    user_cardname=event.sender.card or None,
+                    user_cardname=cardname or None,
                     platform= config.platfrom
                 )
                 # 获取群信息添加默认值
@@ -309,10 +315,13 @@ class ChatBot:
                 if event.group_id not in config.allow_group_list:
                     return
 
+            user_infot_api = await bot.call_api(
+                'get_group_member_info',group_id = event.group_id, user_id = event.user_id, no_cache = True)
+            cardname = {user_infot_api['title']} or event.sender.card
             user_info = UserInfo(
                 user_id=event.user_id,
                 user_nickname=event.sender.nickname,
-                user_cardname=event.sender.card or None,
+                user_cardname=cardname or None,
                 platform=config.platfrom,
             )
             
