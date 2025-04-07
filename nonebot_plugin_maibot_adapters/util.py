@@ -3,6 +3,9 @@ from pathlib import Path
 import hashlib
 import aiohttp
 from nonebot import logger
+import ssl
+from PIL import Image
+from io import BytesIO
 
 def local_file_to_base64(file_path: str) -> str:
     # 读取本地图片文件
@@ -35,47 +38,70 @@ def detect_image_type(data: bytes) -> str:
         return "unknown"
 
 def base64_to_image(base64_str: str, save_dir: str = "data/images") -> str:
-    """处理无头Base64字符串并保存为哈希命名的图片"""
+    """处理Base64字符串并保存为哈希命名的图片，非GIF格式转为单帧GIF"""
     try:
         # 解码Base64
         image_data = base64.b64decode(base64_str)
         
-        # 计算哈希值
-        file_hash = hashlib.md5(image_data).hexdigest()
-        
         # 检测图片类型
         image_type = detect_image_type(image_data)
         
-        # 映射类型到扩展名
-        type_mapping = {
-            "png": "png",
-            "jpeg": "jpg",
-            "gif": "gif",
-            "webp": "webp",
-            "ico": "ico",
-            "bmp": "bmp",
-            "unknown": "png"  # 未知类型默认png
-        }
-        file_ext = type_mapping[image_type]
+        # 计算哈希值（基于原始数据）
+        file_hash = hashlib.md5(image_data).hexdigest()
         
         # 构建保存路径
-        save_path = Path("data/images").resolve() / f"{file_hash}.{file_ext}"
-        save_path.parent.mkdir(parents=True, exist_ok=True)
+        save_dir_path = Path(save_dir).resolve()
+        save_dir_path.mkdir(parents=True, exist_ok=True)
         
-        # 仅当文件不存在时保存
-        if not save_path.exists():
-            with open(save_path, "wb") as f:
-                f.write(image_data)
+        # 如果是GIF，直接保存原文件
+        if image_type == "gif":
+            save_path = save_dir_path / f"{file_hash}.gif"
+            if not save_path.exists():
+                with open(save_path, "wb") as f:
+                    f.write(image_data)
+            return f"file:///{save_path.absolute().as_posix()}"
         
-        return f"file:///{save_path.absolute().as_posix()}"
-    except Exception as e:
-        raise ValueError(f"Base64解码失败: {str(e)}")
+        # 对于非GIF格式，转换为单帧GIF
+        else:
+            # 使用Pillow打开图片并转换为GIF
+            img = Image.open(BytesIO(image_data))
+            
+            # 处理透明度（如果是PNG等有透明通道的格式）
+            if image_type == "png" and img.mode in ('RGBA', 'LA'):
+                background = Image.new('RGBA', img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[-1])
+                img = background.convert('RGB')
+            
+            # 转换为GIF格式
+            gif_buffer = BytesIO()
+            img.save(gif_buffer, format='GIF')
+            gif_data = gif_buffer.getvalue()
+            
+            # 计算转换后GIF的哈希值（基于转换后的数据）
+            gif_hash = hashlib.md5(gif_data).hexdigest()
+            save_path = save_dir_path / f"{gif_hash}.gif"
+            
+            if not save_path.exists():
+                with open(save_path, "wb") as f:
+                    f.write(gif_data)
+            
+            return f"file:///{save_path.absolute().as_posix()}"
     
+    except Exception as e:
+        raise ValueError(f"图片处理失败: {str(e)}")
 
-async def download_image_url(url: str) -> bytes:
+async def download_image_url(url: str) -> str:
     """直接返回 Base64 字符串"""
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+        # 创建 SSL 上下文，禁用 SSLv3，允许 TLS 1.2+
+        ssl_context = ssl.create_default_context()
+        ssl_context.options |= ssl.OP_NO_SSLv3  # 禁用 SSLv3
+        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2  # 强制 TLS 1.2+（Python 3.7+）
+
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=10),
+            connector=aiohttp.TCPConnector(ssl=ssl_context)  # 应用自定义 SSL 配置
+        ) as session:
             async with session.get(url) as resp:
                 resp.raise_for_status()
                 image_bytes = await resp.read()

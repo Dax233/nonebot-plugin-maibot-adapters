@@ -1,4 +1,4 @@
-from nonebot import logger
+from nonebot import logger, get_plugin_config
 from nonebot.adapters.onebot.v11 import (
     Bot,
     MessageEvent,
@@ -20,7 +20,7 @@ import asyncio
 
 
 
-config = Config()
+config = get_plugin_config(Config)
 
 # 定义日志配置
 
@@ -28,7 +28,7 @@ class ChatBot:
     def __init__(self):
         self.bot = None  # bot 实例引用
         self._started = False
-        self.fastapi_url =  config.Fastapi_url
+        self.fastapi_url =  config.fastapi_url
         self.client = httpx.AsyncClient(timeout=60)  # 创建异步HTTP客户端
 
     async def _ensure_started(self):
