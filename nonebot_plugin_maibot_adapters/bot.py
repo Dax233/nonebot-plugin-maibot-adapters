@@ -11,7 +11,7 @@ from nonebot.adapters.onebot.v11 import (
 )
 from maim_message import UserInfo, GroupInfo, Seg ,BaseMessageInfo,MessageBase,FormatInfo,TemplateInfo
 from .config import Config
-from .util import local_file_to_base64,download_image_url
+from .util import local_file_to_base64, download_image_url, message_seg_handler
 
 import httpx
 import time
@@ -240,39 +240,7 @@ class ChatBot:
 
         seg_list = []
         # 处理图片段
-        for segment in event.message:
-            if segment.type == "image":
-                # 获取真实图片数据（根据协议适配器实现）
-                image_file = segment.data.get("file")
-                image_url = segment.data.get("url")
-                subtype = segment.data.get("subType")
-                try:
-                    #这里是私人emoji和图片
-                    image_data = await asyncio.wait_for(bot.get_image(file=image_file),timeout=2)#2s不响应自动切换一个解决方式
-                    file_path = image_data["file"]
-                    base64_str = local_file_to_base64(file_path)
-                    subtype = str(subtype) # 确保类型一致性
-                    if subtype == "0": #图片
-                        image_type = 'image'
-                    else:
-                        image_type = 'emoji'
-                except asyncio.TimeoutError:
-                    #这里是商店的emoji
-                    image_type = 'emoji'
-                    logger.info("切换url下载")
-                    base64_str = await download_image_url(image_url)
-                    #下载并且转换为base64
-
-                # logger.info(image_type)
-                seg_list.append(Seg(type = image_type,data = base64_str))
-            elif segment.type == "text" :
-                seg_list.append(Seg(type = "text",data = str(segment.data.get("text",""))))
-            elif segment.type == "at" :
-                seg_at_id = str(segment.data.get("qq",""))
-                user_nickname=(await bot.get_stranger_info(user_id=seg_at_id))["nickname"]
-                seg_list.append(Seg(type = "text",data = f"@{user_nickname}({seg_at_id})"))
-            else:
-                continue
+        seg_list = await message_seg_handler(bot, event.message, seg_list)
 
         if len(seg_list) == 1:
             message_content = seg_list[0]
@@ -328,10 +296,20 @@ class ChatBot:
             group_info = GroupInfo(group_id=event.group_id, 
                                    group_name=(await bot.get_group_info(group_id = event.group_id,no_cache=True))["group_name"], 
                                    platform=config.platfrom)
+        
+        seg_list = []
+        # 处理回复消息段
+        seg_list.append(Seg(type="text", data=str(f"[回复 {event.reply.sender.nickname}({event.reply.sender.user_id})：")))
+        seg_list = await message_seg_handler(bot, event.reply.message, seg_list)
+        seg_list.append(Seg(type="text", data=str("]，说：")))
+        seg_list = await message_seg_handler(bot, event.message, seg_list)
+        if len(seg_list) == 1:
+            message_content = seg_list[0]
+        else:
+            message_content = Seg(type="seglist", data=seg_list)
 
-        message_content =  f"[回复 {event.reply.sender.nickname}({event.reply.sender.user_id})：{event.reply.message}]，说："
         # message_content += f"-{event.reply.sender.nickname}(id{event.reply.user_id}):{event.reply.message}\n回复了以下信息："
-        message_content+=event.get_plaintext()
+        # message_content+=event.get_plaintext()
         # logger.info(f"\n\n\n{message_content}\n\n\n")
 
         message_info = BaseMessageInfo(
@@ -342,10 +320,7 @@ class ChatBot:
                 user_info = user_info,
         )
 
-        message_seg = Seg(  
-                    type = 'text',
-                    data = message_content,  
-            )
+        message_seg = message_content
 
 
         message_base = MessageBase(message_info,message_seg,raw_message=event.get_plaintext())
